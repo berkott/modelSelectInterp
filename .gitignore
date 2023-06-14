@@ -1,2 +1,8 @@
 __pycache__/
-__pycache__/*
+
+models/*
+
+configs/*
+!configs/TEMPLATE.yaml
+
+.vscode/
