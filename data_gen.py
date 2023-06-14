@@ -2,7 +2,7 @@ from sklearn import linear_model
 import torch
 
 def get_data(alphas=[0.1, 0.5], N=21, d_d=5, train_samp_per_class=10000):
-    data = {a: {b: {"y_hat": 0, "y_test": 0} for b in alphas} for a in alphas}
+    data = {a: {b: {"y_test": 0, "y_hat": 0} for b in alphas} for a in alphas}
 
     for a in alphas:
         x_train = torch.normal(0, 1, size=(train_samp_per_class, N, d_d))
