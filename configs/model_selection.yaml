@@ -4,7 +4,7 @@ data:
     N: 21
     data_alphas: 
         - 0.1
-        - 0.5
+        - 0.8
     train_prop: 0.8
 
 model:
@@ -15,14 +15,14 @@ model:
 
 training:
     batch_size: 32
-    lr: 0.0003
-    save_every_epochs: 500
-    epochs: 1000
+    lr: 0.0004
+    save_every_epochs: 250
+    epochs: 10000
 
-out_dir: models/
+out_dir: ./models
 
 wandb:
     name: "model_selection"
     project: modelSelectInterp
-    entity: berkott
+    entity: chsanford4
     notes:

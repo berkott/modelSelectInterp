@@ -6,3 +6,7 @@ configs/*
 !configs/TEMPLATE.yaml
 
 .vscode/
+
+condaRun.sh
+secrets.txt
+slurm_out/
