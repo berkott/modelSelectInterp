@@ -48,7 +48,7 @@ def get_ensemble_model(X, y):
     loss_fn_none = nn.MSELoss(reduction="none")
     softmax = nn.Softmax(dim=1)
 
-    weights = softmax(torch.cat([torch.unsqueeze(loss_fn_none(X[:, -1, i], y), 1) for i in range(len(args.data.data_alphas))], dim=1))
+    weights = softmax(-torch.cat([torch.unsqueeze(loss_fn_none(X[:, -1, i], y), 1) for i in range(len(args.data.data_alphas))], dim=1))
 
     return (weights * X[:, -1, :-1]).sum(dim=1)
 
