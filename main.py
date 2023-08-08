@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-from data_gen import get_data, format_data
+from data_gen import format_data, get_regression_data, get_classification_data
 from models import TransformerModel
 import wandb
 import yaml
@@ -12,6 +12,7 @@ import time
 with open(f"configs/model_selection.yaml", "r") as yaml_file:
     args = Munch.fromYAML(yaml_file)
 
+LOAD_MODEL = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def nn_train(dataloader, model, loss_fn, optimizer, verbose=False):
@@ -103,7 +104,10 @@ def train(model):
     test_loss = []
 
     for t in range(args.training.epochs):
-        data_dict = get_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class)
+        if args.data.classification:
+            data_dict = get_classification_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class)
+        else:
+            data_dict = get_regression_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class)
 
         alphas, X, y = format_data(data_dict, train_samples_per_alpha=int(args.data.train_samp_per_class / len(args.data.data_alphas)))
 
@@ -133,11 +137,12 @@ def train(model):
             print(f"Train Loss: {new_train_loss}, Test Loss: {new_test_loss}")
         
         if t % args.training.save_every_epochs == 0 and t > 0:
-            print(f"Saving model at epoch {t} to {args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pth")
-            torch.save(model.state_dict(), f"{args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pth")
+            save_path = f"{args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pt"
+            print(f"Saving model at epoch {t} to {save_path}")
+            torch.save(model.state_dict(), save_path)
             wandb.log(
                 {
-                    "save_name": f"{args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pth"
+                    "save_name": save_path
                 },
                 step=t,
             )
@@ -155,7 +160,7 @@ def train(model):
             step=t,
         )
     
-    torch.save(model.state_dict(), f"{args.out_dir}/model{int(time.time()*10)}.pth")
+    torch.save(model.state_dict(), f"{args.out_dir}/model{int(time.time()*10)}.pt")
 
     return train_loss, test_loss
 
@@ -167,6 +172,9 @@ if __name__ == "__main__":
         n_head=args.model.n_head,
         n_embd=args.model.n_embd
     ).to(device)
+
+    if LOAD_MODEL:
+        model.load_state_dict(torch.load("/burg/home/bto2106/code/modelSelectInterp/models/model_epoch1750_time16869439352.pth"))
 
     wandb.init(dir=args.out_dir,
         project=args.wandb.project,
