@@ -9,13 +9,12 @@ def get_regression_data(alphas=[0.1, 0.5], N=21, d_d=5, train_samp_per_class=100
     train_samples_per_alpha = int(train_samp_per_class / len(alphas))
 
     for a in alphas:
-        X_train = torch.normal(0, 1, size=(train_samples_per_alpha, N, d_d))
-        X_test = torch.normal(0, 1, size=(train_samples_per_alpha, N, d_d))
+        X_train = torch.randn(train_samples_per_alpha, N, d_d)
+        X_test = torch.randn(train_samples_per_alpha, N, d_d)
+        w = torch.randn(train_samples_per_alpha, d_d, 1)
 
-        w = torch.normal(0, 1, size=(train_samples_per_alpha, d_d, 1))
-
-        y_train = torch.squeeze(torch.matmul(X_train, w)) + torch.normal(0, a*0.8, size=(train_samples_per_alpha, N))
-        y_test = torch.squeeze(torch.matmul(X_test, w)) + torch.normal(0, a*0.8, size=(train_samples_per_alpha, N))
+        y_train = torch.squeeze(torch.matmul(X_train, w)) + torch.normal(0, a * 0.8, size=(train_samples_per_alpha, N))
+        y_test = torch.squeeze(torch.matmul(X_test, w)) + torch.normal(0, a * 0.8, size=(train_samples_per_alpha, N))
 
         for b in alphas:
             results = torch.zeros((train_samples_per_alpha, N))

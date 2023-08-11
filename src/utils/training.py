@@ -1,21 +1,15 @@
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from data_gen import format_data, get_regression_data, get_classification_data
 from models import TransformerModel
 import wandb
-import yaml
-from munch import Munch
-import time
-
-with open(f"configs/model_selection.yaml", "r") as yaml_file:
-    args = Munch.fromYAML(yaml_file)
+from tqdm import tqdm
 
 LOAD_MODEL = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def nn_train(dataloader, model, loss_fn, optimizer, verbose=False):
+def nn_train(device, dataloader, model, loss_fn, optimizer, verbose=False):
     size = len(dataloader.dataset)
     model.train()
     avg_loss = 0
@@ -47,7 +41,7 @@ def get_manual_select_model(X, y):
 
     return X[torch.arange(min_indices.shape[0]), -1, min_indices]
 
-def get_ensemble_model(X, y):
+def get_ensemble_model(args, X, y):
     loss_fn_none = nn.MSELoss(reduction="none")
     softmax = nn.Softmax(dim=1)
 
@@ -55,7 +49,7 @@ def get_ensemble_model(X, y):
 
     return (weights * X[:, -1, :-1]).sum(dim=1)
 
-def get_other_losses(dataloader, loss_fn, verbose=False):
+def get_other_losses(model, args, device, dataloader, loss_fn, verbose=False):
     num_batches = len(dataloader)
     model.eval()
 
@@ -67,9 +61,9 @@ def get_other_losses(dataloader, loss_fn, verbose=False):
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
-            manual_loss += loss_fn(get_manual_select_model(X, y), y).item()
+            manual_loss += loss_fn(get_manual_select_model(args, X, y), y).item()
             average_loss += loss_fn(torch.mean(X[:, -1, :-1], dim=1), y).item()
-            ensemble_loss += loss_fn(get_ensemble_model(X, y), y).item()
+            ensemble_loss += loss_fn(get_ensemble_model(args, X, y), y).item()
             alpha_losses = [sum(i) for i in zip(alpha_losses, [loss_fn(X[:, -1, i], y).item() for i in range(len(args.data.data_alphas))])]  
         
         manual_loss /= num_batches
@@ -81,7 +75,7 @@ def get_other_losses(dataloader, loss_fn, verbose=False):
 
     return manual_loss, average_loss, ensemble_loss, alpha_losses
 
-def nn_test(dataloader, model, loss_fn, verbose=False):
+def nn_test(device, dataloader, model, loss_fn, verbose=False):
     num_batches = len(dataloader)
     model.eval()
     test_loss = 0
@@ -98,7 +92,7 @@ def nn_test(dataloader, model, loss_fn, verbose=False):
 
     return test_loss
 
-def train(model):
+def train(model, device, args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.training.lr)
     loss_fn = nn.MSELoss()
 
@@ -127,16 +121,15 @@ def train(model):
         train_dataloader = DataLoader(train_dataset, batch_size=args.training.batch_size)
         test_dataloader = DataLoader(test_dataset, batch_size=args.training.batch_size)
 
-        new_train_loss = nn_train(train_dataloader, model, loss_fn, optimizer)
-        new_test_loss = nn_test(test_dataloader, model, loss_fn)
-        manual_loss, average_loss, ensemble_loss, alpha_losses = get_other_losses(test_dataloader, loss_fn)
+        new_train_loss = nn_train(device, train_dataloader, model, loss_fn, optimizer)
+        new_test_loss = nn_test(device, test_dataloader, model, loss_fn)
+        manual_loss, average_loss, ensemble_loss, alpha_losses = get_other_losses(model, args, device, test_dataloader, loss_fn)
 
         train_loss.append(new_train_loss)
         test_loss.append(new_test_loss)
 
         if t % 10 == 0:
-            print(f"Epoch {t+1}\n-------------------------------")
-            print(f"Train Loss: {new_train_loss}, Test Loss: {new_test_loss}")
+            pbar.write(f"Train Loss: {new_train_loss}, Test Loss: {new_test_loss}")
         
         if t % args.training.save_every_epochs == 0 and t > 0:
             save_path = f"{args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pt"
@@ -149,18 +142,15 @@ def train(model):
                 step=t,
             )
         
-        wandb.log(
-            {
-                "train_loss": new_train_loss,
-                "test_loss": new_test_loss,
-                "manual_loss": manual_loss,
-                "average_loss": average_loss,
-                "ensemble_loss": ensemble_loss
-            } | {
-                f"alpha_{args.data.data_alphas[i]}_loss": alpha_loss for i, alpha_loss in enumerate(alpha_losses)
-            },
-            step=t,
-        )
+        wandb.log({"train_loss": new_train_loss,
+                   "test_loss": new_test_loss,
+                   "manual_loss": manual_loss,
+                   "average_loss": average_loss,
+                   "ensemble_loss": ensemble_loss
+                   } | {
+                       f"alpha={args.data.data_alphas[i]}_loss": alpha_loss for i, alpha_loss in enumerate(alpha_losses)
+                       },
+                       step=t)
     
     torch.save(model.state_dict(), f"{args.out_dir}/model{int(time.time()*10)}.pt")
 
