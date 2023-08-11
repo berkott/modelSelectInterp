@@ -39,7 +39,9 @@ def nn_train(dataloader, model, loss_fn, optimizer, verbose=False):
     return avg_loss/size
 
 def get_manual_select_model(X, y):
-    loss_fn_none = nn.MSELoss(reduction="none")
+    # loss_fn_none = nn.MSELoss(reduction="none")
+    # loss_fn_none = nn.MSELoss(reduction="none")
+    loss_fn_none = nn.BCELoss(reduction="none")
     
     min_indices = torch.argmin(torch.cat([torch.unsqueeze(loss_fn_none(X[:, -1, i], y), 1) for i in range(len(args.data.data_alphas))], dim=1), dim=1)
 
@@ -105,7 +107,7 @@ def train(model):
 
     for t in range(args.training.epochs):
         if args.data.classification:
-            data_dict = get_classification_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class)
+            data_dict = get_classification_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class, data_gen_factor=args.data.data_gen_factor)
         else:
             data_dict = get_regression_data(alphas=args.data.data_alphas, N=args.data.N, d_d=args.data.d_d, train_samp_per_class=args.data.train_samp_per_class)
 
