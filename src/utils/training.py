@@ -4,10 +4,8 @@ from torch.utils.data import TensorDataset, DataLoader
 from data_gen import format_data, get_regression_data, get_classification_data
 from models import TransformerModel
 import wandb
+import time
 from tqdm import tqdm
-
-LOAD_MODEL = False
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def nn_train(device, dataloader, model, loss_fn, optimizer, verbose=False):
     size = len(dataloader.dataset)
@@ -128,8 +126,8 @@ def train(model, device, args):
         train_loss.append(new_train_loss)
         test_loss.append(new_test_loss)
 
-        if t % 10 == 0:
-            pbar.write(f"Train Loss: {new_train_loss}, Test Loss: {new_test_loss}")
+        # if t % 10 == 0:
+        #     pbar.write(f"Train Loss: {new_train_loss}, Test Loss: {new_test_loss}")
         
         if t % args.training.save_every_epochs == 0 and t > 0:
             save_path = f"{args.out_dir}/model_epoch{t}_time{int(time.time()*10)}.pt"
@@ -155,27 +153,3 @@ def train(model, device, args):
     torch.save(model.state_dict(), f"{args.out_dir}/model{int(time.time()*10)}.pt")
 
     return train_loss, test_loss
-
-if __name__ == "__main__":
-    model = TransformerModel(
-        n_dims=len(args.data.data_alphas) + 1,
-        n_positions=args.data.N,
-        n_layer=args.model.n_layer,
-        n_head=args.model.n_head,
-        n_embd=args.model.n_embd
-    ).to(device)
-
-    if LOAD_MODEL:
-        model.load_state_dict(torch.load("/burg/home/bto2106/code/modelSelectInterp/models/model_epoch1750_time16869439352.pth"))
-
-    wandb.init(dir=args.out_dir,
-        project=args.wandb.project,
-        entity=args.wandb.entity,
-        config=args.__dict__,
-        notes=args.wandb.notes,
-        name=args.wandb.name,
-        # resume=True
-        resume=False
-    )
-
-    train_loss, test_loss = train(model)

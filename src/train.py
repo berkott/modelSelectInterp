@@ -5,7 +5,6 @@ import wandb
 from munch import Munch
 import argparse
 
-
 # Command line parser
 parser = argparse.ArgumentParser()
 parser.add_argument("--config_file", type=str)
